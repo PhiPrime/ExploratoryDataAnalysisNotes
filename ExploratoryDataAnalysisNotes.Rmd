@@ -15,7 +15,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Intro  
 ## Instructor's Note  
-"*This course covers the essential exploratory techniques for summarizing*   
+*This course covers the essential exploratory techniques for summarizing*   
 *data. These techniques are typically applied before formal modeling*  
 *commences and can help inform the development of more complex statistical*  
 *models. Exploratory techniques are also important for eliminating or*  
@@ -26,7 +26,8 @@ knitr::opts_chunk$set(echo = TRUE)
   
 *All the best,*  
   
-*Roger Peng*"  
+*Roger Peng*  
+
 ## Introduction  
 * EDA allows you to develop a rough idea of what your data look like and what kinds of questions might be answered by them. 
 * EDA is often the "fun part" of data analysis, where you get to play around with the data and explore.  
@@ -43,15 +44,15 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Installing R on...
 ### Windows  
-* Just go to **[the cran.r site](https://cran.r-project.org/)** and install the Windows version.  
+* Just go to **[the cran site](https://cran.r-project.org/)** and install the Windows version.  
         + For an optimal experience, back up all of data onto a usb, then install your prefered version of Linux (I use Fedora) and install the Linux version instead.  
 
 ### Mac  
-* Just go to **[the cran.r site](https://cran.r-project.org/)** and install the Mac version.  
+* Just go to **[the cran site](https://cran.r-project.org/)** and install the Mac version.  
         + If you don't have enough money to buy a Mac install Linux instead, it's open-source, meaning it's free!  
 
 ## Installing R Studio (Mac)  
-* Install from **[the RStudio website](https://rstudio.com/products/rstudio/download/)** after you have `R` installed.  
+* Install from **[the RStudio website](https://rstudio.com/products/rstudio/download/)** *after* you have `R` installed.  
 
 ## Setting Your Working Directory on...
 ### Windows, Mac & Linux 
@@ -64,7 +65,6 @@ knitr::opts_chunk$set(echo = TRUE)
 
 
 
-***Reminder to commit to GitHub (Delete this line AFTER the commit)***
 
 # Lesson 1: Graphs
 ## Principles of Analytic Graphics  
