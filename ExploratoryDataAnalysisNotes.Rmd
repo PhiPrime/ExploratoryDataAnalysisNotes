@@ -14,6 +14,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Intro  
+* **[Slides and data for this course may be found at github](https://github.com/DataScienceSpecialization/courses/tree/master/04_ExploratoryAnalysis)**  
+
 ## Instructor's Note  
 *This course covers the essential exploratory techniques for summarizing*   
 *data. These techniques are typically applied before formal modeling*  
@@ -68,16 +70,214 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Lesson 1: Graphs
 ## Principles of Analytic Graphics  
+* Some general rules to follow when building analytic graphics from data to tell the story the data hold.  
+
+* Principles:
+
+1) Show Comparisons
+  + Evidence for a hypothesis is always *relative* to another competing hypothesis  
+  + Always ask "Commpared to What?"
+  + For example a box plot of **Change in symptom-free days** in children with asthma when an **Air Cleaner** is installed in their quarters should be shown in *comparison* to a control group
+![Showing Comparisons Example](./images/show_comparisons_ex.png)  
+
+2) Show Causality, Mechanism, or Explanation  
+  + To show what is going on/how you belive the system is operating and what is the cause for the result you are showing.
+  + What is your causal framework for thinking about a question
+  + This only shows a suggestion and indicates where futher investigation could go
+  + In the asthma example you would also want to show the **Change in PM** (Particulate Matter) in the childs home between the **Control** and **Air Cleaner**  
+![Showing Causality Example](./images/show_causality_ex.png)
+
+3) Show Multivariate Data 
+  + Show as much data on a plot as you reasonably can, it tells a richer story  
+  + The real world is multivariate, so your plots should reflect that  
+  + Need to "escape flatland"
+  + For example, below is a 2-D plot of **Daily mortality** versus **PM concentration** in NYC, and it shows a slight decrease in mortality as PM increases.  
+![2D Plot](./images/2d_plot.png)
+  + However, if we plot this across four plots for each season we can see an increase in mortality within each season  
+![Seasonal Plot](./images/season_plot.png)
+  
+4) Integration of Evidence  
+  + Don't let the tool drive the analysis  
+  + Completely integrate words, numbers, images, and diagrams  
+  + Data graphics should make use of many modes of data presentation  
+  + Put lot of information on the plots rather than diffrent places where it may be hard to track down
+  + The following example shows a plot that has a column for probability that the hospitalizations are diffrent than 0, (the left side is labeling the rows), and the bottom is describing how the experiment was performed  
+![Percent Change in Emergency Hospital Admissions Rate for Cardiovascular Diseases per a given Increase in Particulate Matter](./images/integration_of_evidence_ex.png)
+  
+5) Describe and Document the Evidence
+  + Use appropriate labels, scales, sources, etc.  
+  + A data graphic should tell a complete story that is also credible  
+  
+6) Content is King  
+  + If there isn't an intresting story to tell no amount of presentation will make it intresting  
+  + Analytical presentations ultimately stand or fall depending on the quality, relevance, and integrity of their content  
+  
+* Further Reading - **[Edward Tufte's Beautiful Evidence ($32)](https://www.edwardtufte.com/tufte/books_be)**
 
 
 ## Lesson with `swirl()`: Principles of Analytic Graphs  
-
+* This lesson runs through the 5 principles that were discussed in the above lecture.
+* The multivate plot was an example of **[Simpson's paradox, or the Yule-Simpson effect](http://en.wikipedia.org/wiki/Simpson%27s_paradox)**
+* With R, you want to preserve any code you use to generate your data and graphics so that the research can be replicated if necessary.  
+  + This allows for easy verfication or finding bugs in your analysis  
 
 
 ## Exploratory Graphs
+* These are graphs that are made for yourself to look at and explore the data sets you're looking at  
+* Why do we use graphs in data analysis?
+    - To undestand data properties  
+    - To find patterns in data  
+    - To suggest modeling strategies  
+    - To "debug" analyses  
+    - To communicate results  
+  +  Exploratory graphs are for the first four of these reasons  
 
+* Characteristics of exploratory graphs  
+  + They are made quickly ("on the fly")  
+  + A large number are made  
+    - Looking through a lot of the varaibles and diffrent aspects of the data  
+  + The goal is for personal understanding  
+    - What are the properties, problems, and issues that need followed up  
+  + Axes/legends are generally cleaned up later  
+  + Color/size are primarily used for information, rather than presentation  
+  
+* The following examples will be using data about ambient air pollution in the United States for particle pollution (PM2.5), the "annual mean, averged over 3 years" cannot exceed 12 micrograms/cubic meter  
+```{r}
+pollution <- read.csv("./data/avgpm25.csv", 
+                      colClasses = c("numeric", "character", "factor", "numeric", "numeric"))
+head(pollution)
+```
+  + The question we are looking into is: *Do any counties exceed the standard of $12 \mu g/m^{3}$?*  
+    - You always want to have an underlying question in mind, even if it's kind of vague  
+* Simple summaries of Data
+  + Five-number summary  
+  + Boxplots  
+  + Histograms  
+  + Density plot  
+  + Barplot  
+  
+### Five-number Summary  
+* The `summary` function in R gives the 5-number summary as well as the mean  
+```{r}
+summary(pollution$pm25)
+```
+
+### Boxplots  
+```{r}
+boxplot(pollution$pm25, col = "hotpink4") #Lecture used blue but I dislike that display
+```
+
+* Overlaying a horizontal line to help investigate our question
+```{r}
+boxplot(pollution$pm25, col = "hotpink4")
+abline(h = 12)
+```
+
+
+### Histograms  
+```{r}
+hist(pollution$pm25, col = "green")
+```
+
+* Including a rug will show detail of the points that causing the plot
+```{r}
+hist(pollution$pm25, col = "green")
+rug(pollution$pm25)
+```
+
+* One can also state the number of breaks that are to be in the histogram  
+  + too big of a number will make too much noise within the histogram  
+  + too small of a number won't show the shape of the distribution  
+```{r}
+hist(pollution$pm25, col = "green", breaks = 100)
+rug(pollution$pm25)
+```
+
+* Adding a vertical line and the median to the histogram  
+```{r}
+hist(pollution$pm25, col = "green")
+abline(v = 12, lwd = 2) #lwd sets the width of the line
+abline( v = median(pollution$pm25), col = "magenta", lwd = 4)
+```
+
+
+### Density plot  
+
+```{r}
+plot(density(pollution$pm25))
+```
+
+* Adding a polygon to fill the area  
+```{r}
+plot(density(pollution$pm25))
+polygon(density(pollution$pm25), col = "green4")
+```
+
+
+### Barplot  
+* used for comparing catagorical variables  
+```{r}
+barplot(table(pollution$region), col = "wheat", main = "Number of Counties in Each Region")
+```
+
+* Simple Summaries of Data  
+  + Two dimensions  
+    - Multiple/overlayed 1-D plots (Lattice/ggplot2)  
+    - Scatterplots  
+    - Smooth scatterplots  
+  
+  + Greater than 2 dimensions
+    - Overlayed/multiple 2-D plots; coplots  
+    - Use color, size, shape to add dimensions  
+    - Spinning plots  
+    - Actual 3-D plots (not that useful)  
+
+### Multiple Boxplots  
+```{r}
+#Look at pm25 ~(separated by) region
+boxplot(pm25 ~ region, data = pollution, col = "red")
+```
+
+### Multiple Histograms  
+```{r}
+#mfrow determines the number of: c(row, col)
+#mar is the size of the margins on the c(bottom, left, top, right)
+par(mfrow = c(2, 1), mar = c(4, 4, 2, 1))
+hist(subset(pollution, region == "east")$pm25, col = "green")
+hist(subset(pollution, region == "west")$pm25, col = "green")
+```
+
+### Scatterplot  
+```{r}
+with(pollution, plot(latitude, pm25))
+
+#lty = line type
+abline(h = 12, lwd = 2, lty = 2)
+```
+  
+* Using Color  
+```{r}
+with(pollution, plot(latitude, pm25, col = region))
+abline(h = 12, lwd = 2, lty = 2)
+```
+
+* Multiple Scatterplots  
+```{r}
+par(mfrow = c(1,2), mar = c(5, 4, 2, 1))
+with(subset(pollution, region == "west"), plot(latitude, pm25, main = "West"))
+with(subset(pollution, region == "east"), plot(latitude, pm25, main = "East"))
+```
+
+* Further Reading
+  + **[R Graph Gallery]()**  
+  + **[R Bloggers]()**  
 
 ## Lesson with `swirl()`: Exploratory Graphs    
+* Since out brains are very good at seeing patterns, graphs give us a compact way to present data and find or display any pattern that may be present  
+* We ***don't*** use exploratory graphs to communicate results  
+* Exploratory graphs are the "quick and dirty" tool used to point the data scientist in a fruitful direction  
+* Plot details such as axes, legends, color, and size are cleaned up later to convey more information in an aesthetically pleasing way.  
+
 
 
 ***Reminder to commit to GitHub (Delete this line AFTER the commit)***
