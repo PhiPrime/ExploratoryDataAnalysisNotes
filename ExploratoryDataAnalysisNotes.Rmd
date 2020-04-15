@@ -640,9 +640,8 @@ dev.off() ##Close the PNG device
 ```
   
 
-***Reminder to commit to GitHub (Delete this line AFTER the commit)***
-
 # Course Project 1  
+**[My project can be found on GitHub](https://github.com/PhiPrime/Electric_Power_Consumption_EDA_Proj1)**
 
 ***Reminder to commit to GitHub (Delete this line AFTER the commit)***
 
