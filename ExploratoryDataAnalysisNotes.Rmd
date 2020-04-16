@@ -641,21 +641,127 @@ dev.off() ##Close the PNG device
   
 
 # Course Project 1  
-**[My project can be found on GitHub](https://github.com/PhiPrime/Electric_Power_Consumption_EDA_Proj1)**
+**[My project can be found on GitHub](https://github.com/PhiPrime/Electric_Power_Consumption_EDA_Proj1)**  
 
-***Reminder to commit to GitHub (Delete this line AFTER the commit)***
 
 # Lesson 4: Lattice Plotting  
-## Lattice Plotting System (part 1)  
+## Overview  
+* Useful for plotting high dimensional data and making many plots at once  
+* The lattice plotting system si implemented using the following packages:
+  + `lattice`: contains code for producing Trellis graphics, which are independent of the "base" graphics system; includes functions like `xyplot`, `bwplot`, `levelplot`  
+  + `grid`: implements a different graphing system independent of the "base" system; the *lattice* package builds on top of *grid*  
+    - We deldom call functions from the *grid* package directly  
+  + The lattice plotting system does not have a "two-phase" aspect with separate plotting and annotation like in base plotting  
+  + All plotting/annotation is done at once with a single function call  
+  
+## Lattice Functions  
+* `xyplot`: this is the main function for creating scatterplots  
+* `bwplot`: box-and-whiskers plots ("boxplots")  
+* `histogram`: histograms  
+* `stripplot`: like a boxplot but with actual points  
+* `dotplot`: plot dots on "violin strings"  
+* `splom`: scatterplot matrix; like `pairs` in base plotting system  
+* `levelplot`, `contourplot`: for plotting "image" data  
 
+### xyplot
+* Lattice functions generally take a formula for their first argument, usually of the form:  
 
-## Lattice Plotting System (part 2)  
+`xyplot(y ~ x | f * g, data)`  
+* We use the *formula notation* here, hence the tilde (`~`)  
+* On the left of the ~ is the y-axis variable, on the right is the x-axis variable  
+* f and g are *categorical*, or *conditioning variables* - they are optional  
+  - the `*` indicates an interaction between two variables  
+* The second argument is the data frame or list from which the variables in the formula should be looked up  
+  + If no data frame or list is passed, then the parent frame is used  
+* If no other arguments are passed, there are defaults that can be used  
+
+```{r}
+library(lattice)
+library(datasets)
+## Simple scatterplot
+xyplot(Ozone ~ Wind, data = airquality)
+```
+
+Demonstrating conditional variables:  
+```{r}
+library(lattice)
+library(datasets)
+##Convert 'Month' to a factor variable
+airquality2 <- transform(airquality, Month = factor(Month))
+xyplot(Ozone ~ Wind | Month, data = airquality2, layout = c(5,1))
+```
+
+### Lattice Behavior  
+Lattice functions behave differently from base graphics functions in once critical way  
+* Base graphics functions plot data directly to the graphics device (screen, PDF file, etc.)  
+* Lattice graphics functions return an object of class **trellis**  
+* The print methods for lattice functions actually do the work of plotting the data on the graphics device  
+* Lattice funcitons return "plot objects" that can, in principle, be stored (but it's usually better to just save the code + data).  
+* On the command line, trellis objects are *auto-pritned* so that i appears the function is plotting the data  
+```{r}
+p <- xyplot(Ozone ~ Wind, data = airquality) ## Nothing happens!
+print(p) ## Plot appears
+```
+
+### Lattice Panel Functions  
+* Lattice functions have a **panel function** which controls what happens inside each panel of the plot.  
+* The *lattice* package comes with default panel functions, but you can supply your own if you want to customize what happens in each panel  
+* Panel functions receive the x/y coordinates of the data points in their panel (along with any optional arguments)  
+
+```{r}
+set.seed(10)
+x <- rnorm(100)
+f <- rep(0:1, each = 50)
+y <- x + f - f * x + rnorm(100, sd = 0.5)
+f <- factor(f, labels = c("Group 1", "Group 2"))
+xyplot(y ~ x | f, layout = c(2,1)) ## Plot with 2 panels
+```
+```{r}
+## Custom panel function
+xyplot(y ~ x | f, panel = function(x, y, ...) {
+  panel.xyplot(x, y, ...) ## First call the default panel function for 'xyplot'
+  panel.abline(h = median(y), lty = 2) ## Add a horizontal line at the median
+})
+```
+```{r}
+## Custom panel function for reg. line
+xyplot(y ~ x | f, panel = function(x, y, ...) {
+  panel.xyplot(x, y, ...) ## First call default panel function
+  panel.lmline(x, y, col = "red") ##Overlay a lienar regression line
+})
+```
+
+* Any functions from base plotting system can't be used here, you can only use lattice functions
+
+### Example from MAACS  
+* Study: Mouse Allergen and Asthma Cohort Study (MAACS)
+* Study subjects: Children with asthma living in Baltimore City, many allergic to mouse allergen  
+* Design: Observational study, baseline home visit then every 3 months for a year  
+* Question: How does indoor airborne mouse allergen vary over time and across subjects?  
+```{r}
+maacs <- readRDS("./data/maacs_env.rds")
+library(dplyr)
+condenced <- maacs %>% select(MxNum, VisitNum, airmus) %>% mutate(allergen = log(airmus, 2))
+xyplot(allergen ~ VisitNum | MxNum,
+       data = condenced,
+       xlab = "Visit Number", 
+       ylab = expression('Log'[2]*' Airborne Mouse Allergen'),
+       strip = FALSE,
+       pch = 20,
+       layout = c(17, 9),
+       main = "Mouse Allergen and Asthma Cohort Study (Baltimore City)"
+       )
+
+```
+
 
 
 ## Lesson with `swirl()`: Lattice Plotting System  
+* The above code from the maacs data features all aspects that were covered in the swirl lesson.  
+  + Personal Note: I feel great about recreating that code, the lecture didn't have instructions on how to do it and I learned more about lattice plots and played with it until I was able to recreate it.
 
 
-## Lesson with `swirl()`: Working with Colors  
+
 
 
 ***Reminder to commit to GitHub (Delete this line AFTER the commit)***
@@ -683,6 +789,8 @@ dev.off() ##Close the PNG device
 
 
 ## Lesson with `swirl()`: GGPlot2 Extras  
+
+## Lesson with `swirl()`: Working with Colors  
 
 
 # Quiz 2 Scribbles  
