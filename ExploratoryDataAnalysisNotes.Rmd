@@ -741,13 +741,14 @@ xyplot(y ~ x | f, panel = function(x, y, ...) {
 ```{r}
 maacs <- readRDS("./data/maacs_env.rds")
 library(dplyr)
+library(lattice)
 condenced <- maacs %>% select(MxNum, VisitNum, airmus) %>% mutate(allergen = log(airmus, 2))
 xyplot(allergen ~ VisitNum | MxNum,
        data = condenced,
        xlab = "Visit Number", 
        ylab = expression('Log'[2]*' Airborne Mouse Allergen'),
-       strip = FALSE,
        pch = 20,
+       strip = FALSE,
        layout = c(17, 9),
        main = "Mouse Allergen and Asthma Cohort Study (Baltimore City)"
        )
@@ -761,51 +762,533 @@ xyplot(allergen ~ VisitNum | MxNum,
   + Personal Note: I feel great about recreating that code, the lecture didn't have instructions on how to do it and I learned more about lattice plots and played with it until I was able to recreate it.
 
 
-
-
-
-***Reminder to commit to GitHub (Delete this line AFTER the commit)***
-
 # Lesson 5: ggplot2 <3  
-## Part 1  
+## Part 1: Intro  
+###What is ggplot2
+* An implementation of the *Grammar of Graphics* by Leland Wilkinson, a description of how graphics can be broken into an abstract langauge, simallar to how a language is constructed around grammer.  
+* Hadley Wickham used this paper to develop ggplot while he was a graduate student at Iowa State, then Hadley developed ggplot2 which corrected some mistakes in the first  
+* This is a "third" graphic system for R (along with **base** and **lattice**)  
+* **[Better documentation is on the web site](https://ggplot2.tidyverse.org/)**
+* Grammar of graphics represents and abstractions of graphics ideas/objects  
+  + Think "verb", "noun", "adjective" for graphics  
+  + Allows for a "theory" of graphics on which to build new graphics and graphics objects  
+* "Shorten the distance from mind to page"  
+* From *ggplot2* book:
+  + *"In brief, the grammar tells us that a statistical graphic is a* ***mapping*** *from data to* ***aesthetic*** *attributes (color, shape, size) of* ***geometric*** *objects (points, lines, bars). The plot may also contain statistical transformations of the data and is drawn on a specific coordinate system"*  
+
+### The Basics of qplot()  
+* Works much like the `plot` function in base graphics system  
+* Looks for data in a data frame, similar to lattice, or in the parent environment  
+* Plots are made up of *aesthetics* (size, shape, color) and *geoms* (points, lines)  
+* Data has to be organzied in a data.frame  
+* Factors are important for indicating subsets of the data (if they are to have different properties)  
+  + they should be labeled
+* The qplot() hides what goes on underneath, which is okay for most operations  
+* ggplot() is the core function and very flexible for doing things qplot() cannnot do  
 
 
-## Part 2  
+
+## Part 2: qplot()  
+* Example Dataset:
+```{r}
+library(ggplot2)
+str(mpg)
+```
+
+```{r}
+library(ggplot2)
+qplot(displ, hwy, data = mpg)
+```
+* `displ` is engine displacement
+
+
+Highlighting subgroups
+```{r}
+qplot(displ, hwy, data = mpg, color = drv)
+```
+* automatically uses `drv` to determine the color, and auto adds a legend
+
+Adding a statistic
+```{r}
+qplot(displ, hwy, data = mpg, geom = c("point", "smooth"))
+```
+* grey zone indicates 95% confidence interval  
+
+### Histogram with qplot  
+```{r}
+qplot(hwy, data = mpg, fill = drv)
+```
+
+### Facets with qplot
+```{r}
+qplot(displ, hwy, data = mpg, facets = .~drv)
+```
+```{r}
+qplot(hwy, data = mpg, facets = drv~., binwidth = 2)
+```
+* Like panels in `lattice`
+* Creates separate panels to look at multiple groups
+* facets are determined with the `<col> ~ <row>`
+  + if there are to be no rows or col then a `.` is used in place of a variable  
+
+### Exmple from MAACS study
+* Mouse Allergen and Asthma Cohort Study  
+  + Baltimore children (aged 5-17)  
+  + Persistent asthma, exacerbation in past year  
+  + Study indoor environment and its relationship with asthma morbidity  
+  + **[Link](https://www.ncbi.nlm.nih.gov/pubmed/23403052)**  
+```{r}
+allData <- readRDS("./data/maacs_env.rds")
+library(dplyr)
+
+## mopos, a factor for Sensity to mouse allergen, is not included in the dataset I managed to find. 
+## As such I will generate it based on ... 
+#
+with( allData, plot(log(airmus, 2), no2))
+getmode <- function(x){
+  uniq <- unique(x)
+  uniq[which.max(tabulate(match(x, uniq)))]
+}
+
+abline(v = getmode(log(allData$airmus[!is.na(allData$airmus)], 2)))
+
+cutMin <- allData[allData$airmus>getmode(allData$airmus[!is.na(allData$airmus)]),]
+with(cutMin, plot(log(airmus, 2), no2))
+with(cutMin, abline(lm(no2+1*sd(no2, na.rm = TRUE)~log(airmus, 2))))
+##with(cutMin, abline(h=mean(no2, na.rm = TRUE)+2*sd(no2, na.rm = TRUE), col = "red"))
+```
+```{r}
+##... any point that is greater than [the line of best fit plus 1 sd]...
+allData <- readRDS("./data/maacs_env.rds")
+getmode <- function(x){
+  uniq <- unique(x)
+  uniq[which.max(tabulate(match(x, uniq)))]
+}
+
+library(dplyr)
+
+cutData <- with(allData, (allData[airmus>getmode(airmus[!is.na(airmus)]),]))
+cutData <- cutData[!is.na(cutData$no2),]
+cutData <- mutate(cutData, log = log(airmus, 2))
+result <- with(cutData, lm(no2+1*sd(no2, na.rm = TRUE)~log))
+intercept <- result[[1]][1][[1]]
+slope <- result[[1]][2][[1]]
+logic <- allData$no2>log(allData$airmus, 2)*slope+intercept
+
+#For understanding the data
+goo <- allData[logic,]
+sorted <- goo %>% arrange(airmus) %>% mutate(log = log(airmus, 2)) %>% select(airmus, log, no2)
+allergic <- is.element(allData$MxNum, unique(goo$MxNum))
+
+withFactor <- allData %>% 
+  mutate(mopos = factor(as.character(allergic), 
+                        levels = c("FALSE", "TRUE"))) %>% 
+  select(MxNum, no2, duBedMusM, pm25, airmus, mopos)
+
+fakeMaacs <- rename(withFactor, 
+                id = MxNum, 
+                eno = no2, 
+                duBedMusM = duBedMusM, 
+                pm25 = pm25, 
+                mopos = mopos) 
+
+qplot(log(airmus, 2), eno, data = fakeMaacs, col = mopos)
+```
+
+
+```{r}
+## of the variable "airmus" since this was reported as the Airborn Mouse Allergen in the lattice lesson
+str(fakeMaacs)
+```
+  
+* id - The identification number of a person  
+* eno - Exhaled nitric oxide, measurment that roughly cooresponds to pulmanary inflamation  
+* duBedMusM - yep  
+* pm25 - fine particulate matter that is less than 
+* mopos - Supposed to be a T/F Factor for if a subject is sensitive to mouse allergen. *However*, the dataset I managed to obtain did not contain this variable, so I created it with the above code
+
+EDIT: I actually got access to these data and will load it now  
+```{r}
+load("./data/maacs.Rda")
+str(maacs)
+```
+
+
+#### Histograms  
+```{r}
+qplot(log(eno), data = maacs, main = "Histogram of eNO")
+```
+```{r}
+qplot(log(eno), data = maacs, fill = mopos, main = "Histogram by Group")
+```
+
+#### Density Plots  
+```{r}
+qplot(log(eno), data = maacs, geom = "density", main = "Density Smooth")
+qplot(log(eno), data = maacs, geom = "density", 
+      color = mopos, main = "Density Smooth by Group")
+```
+
+#### Scatterplots  
+```{r}
+qplot(log(pm25), log(eno), data = maacs)
+qplot(log(pm25), log(eno), data = maacs, shape = mopos)
+qplot(log(pm25), log(eno), data = maacs, color = mopos)
+```
+
+* Looking at subsets more  
+```{r}
+qplot(log(pm25), log(eno), data = maacs, color = mopos) +
+  geom_smooth(method = "lm")
+```
+
+```{r}
+qplot(log(pm25), log(eno), data = maacs, facets = .~mopos) +
+  geom_smooth(method = "lm")
+```
+
+### Summary of qplot()
+* The `qplot()` function is the analog to `plot()` but with many built-in features  
+* Syntax somewhere in between base/lattice  
+* Produces very nice graphics, essentially publication ready (if you like the design)  
+* Difficult to go against the grain/customize (don't bother; use the full power of `ggplot2` in that case)  
+
 
 
 ## Lesson with `swirl()`: GGPlot2 Part 1  
+* The following plot shows the data along the data set since `y` is explitly given in the param  
+```{r}
+library(ggplot2)
+qplot(y = hwy, data = mpg, color = drv)
+```
+
+* Some sexy boxplots:
+```{r}
+qplot(drv,hwy,data=mpg, geom = "boxplot")
+qplot(drv,hwy,data=mpg, geom = "boxplot", color = manufacturer)
+```
+
+## Part 3: "Hello World" of ggplot()
+### Basic Components of a ggplot2 Plot  
+* A **data frame**: what the plot pulls it's variables from  
+* **aesthetic mappings**: how data are mapped to color, size  
+* **geoms**: geometric objects like points, lines, shapes  
+* **facets**: for conditional plots  
+* **stats**: statistical transformations like binning, quantiles, smoothing  
+* **scales**: what scale an aesthetic map uses (example: male = red, female = blue)  
+* **coordinate system**  
+
+### Building Plots with ggplot2  
+* When building plots in ggplot2 (rather than using `qplot`) the "artist's palette" model may be the closest analogy; start with something then add things piece by piece  
+* Plots are built up in layers  
+  + Plot the data  
+  + Overlay a summary  
+  + Metadata and annotation  
+  
+### MAAC Study Example  
+```{r}
+bootstrapMissingVars <- function(dir){
+load(dir)
+#some variables have been removed for privacy reasons so
+#I'm gonna "bootstrap" a fake variables in their place,
+#based off the graphs I can see
+  
+library(dplyr)
+#After some quick arthmetic, it seems logpm25 
+#used log base 10
+maacs <- mutate(maacs, logpm25 = log(pm25, 10))
+
+#Generating NocturnalSympt
+# No values below 0 were shown so I figured I'd drop these
+# And get rid of any NA values at this point
+maacs <- maacs[maacs$logpm25>0 & !is.na(maacs$logpm25),] 
+# I can kind of determine the first few and last bits 
+# of data. So I'm going to manully enter them since 
+# both sides didn't have many higher values, 
+# as such these data will simulate the original 
+# graphs a bit more accurately
+maacs <- arrange(maacs, logpm25)
+firstFew <- c(rep(0,7),2,0,3) # < 0.6
+lastBit <- c(2,0,0,2,0,0,3,3,0,4,4,4,3) # >2
+explicitNum <- sum(length(firstFew), length(lastBit))
+#I determined these values by comparing the visual 
+#on the graph and how the points were distributed, 
+#it seems some values of pm25 were changed from the plots 
+#shown, or the base of log wasn't 10
+
+#For the rest of the values I'm going to 
+#do my best to count how many I see on the graph then
+#randomly sample those values to generate NocturnalSympt
+freqs <- c(42,44,10,11,10,5,6,8,1,2,0,0,0,11)
+eyeCount <- c(rep(0, (length(maacs$logpm25) - sum(freqs, 
+                                            explicitNum))),
+              rep(1, freqs[1]), rep(2, freqs[2]), 
+              rep(3, freqs[3]), rep(4, freqs[4]),
+              rep(5, freqs[5]), rep(6, freqs[6]), 
+              rep(7, freqs[7]), rep(8, freqs[8]), 
+              rep(9, freqs[9]), rep(10, freqs[10]), 
+              rep(14, freqs[14]))
+
+sim <- sample(eyeCount, 
+              length(maacs$logpm25) - explicitNum)
+maacs <- mutate(maacs, 
+                NocturnalSympt = c(firstFew, sim, lastBit))
+
+#The final variable to simulate is bmicat, I'm going to use
+#The data from this
+#(https://www.ncbi.nlm.nih.gov/pmc/articles/PMC1925022/)
+#study and say the random sample was 
+#representative of the population the study obtained 
+#a point estimate of 0.42% (25/60) overweight children.
+#I'll use this point estimate to create a 
+#random dist of overweight for maacs
+p <- 25/60
+m <- length(maacs$logpm25)*p
+
+randDist <- rnorm(length(maacs$logpm25), mean = m,
+              sd = sqrt((p*(1-p))/length(maacs$logpm25)))<m
+l <- c("overweight", "normal weight")
+maacs <- mutate(maacs, 
+              bmicat = factor(ifelse(randDist, l[1], l[2]),
+                                    levels = c(l[2],l[1])))
+#Switched the order of the levels so the plots would
+#Label the facets the same as the videos
+
+## And that'll do it, now just to realign the data
+maacs <- arrange(maacs, id)
+return(maacs)}
+
+#I like the maacs I have rn #maacs <- bootstrapMissingVars("./data/maacs.Rda")
+maacs <- readRDS("./data/decentMaacs.rds")
+
+# #Test graph:
+ chart <- function(maacs){
+   ggplot(maacs, aes(logpm25, NocturnalSympt)) + geom_point(aes(color = bmicat), size = 4, alpha = 1/2)}
+#Alright, anyway...
+str(maacs)
+```
+* Mouse Allergen and Asthma Cohort Study  
+* Baltimore children (Age 5-17)  
+* Persistent asthma, exacerbation in past year  
+* Does BMI (normal vs. overweight) modify the relationship between PM~2.5~ and asthma symptoms?  
+
+### Basic Plot  
+```{r}
+library(ggplot2)
+qplot(logpm25, NocturnalSympt, data = maacs, 
+      facets = .~ bmicat, geom = c("point", "smooth"), method = "lm")
+```
+
+### Building Up in Layers  
+```{r}
+## The data frame
+head(maacs[, 1:3])
+
+## Initial call to ggplot with the Aesthetics in the `aes` param  
+g <- ggplot(maacs, aes(logpm25, NocturnalSympt))
+
+## Summary of ggplot object
+summary(g)
+```
+
+* `g` isn't a plot itself yet, the aesthetics of the point have to be explicitly given  
+```{r}
+p <- g + geom_point()
+print(p)
+```
 
 
-## Part 3  
+
+## Part 4: Adding More Layers  
+### Smoother  
+```{r}
+library(ggplot2)
+g <- ggplot(maacs, aes(logpm25, NocturnalSympt))
+#Generates a lot of noise in the sides
+g + geom_point() + geom_smooth() 
+
+#Linear regression  
+g + geom_point() + geom_smooth(method = "lm")
+```
+
+### Facets  
+```{r}
+g+geom_point() + 
+  facet_grid(. ~ bmicat) + ## Creates facets
+  geom_smooth(method = "lm")
+```
+```{r}
+#Creating two facets on my own
+gp <- ggplot(maacs, aes(logpm25, eno)) + geom_point()
+gp + facet_grid(NocturnalSympt ~ bmicat) + #Awe man, that's ugly as hell
+  geom_smooth(method = "lm")
+```
+
+### Annotation  
+* Labels: `xlab()`, `ylab()`, `labs()`, `ggtitle()`  
+* Each of the "geom" functions has options to modify  
+* For things that only make sense globally, use `theme()`  
+  + Ex: `theme(legend.position = "none)`  
+* Two standard appearance themes are included  
+  + `theme_gray()`: The default theme (gray background)  
+  + `theme_bw()`: Black & white  
+  
+### Modifying Aesthetics  
+```{r}
+g + geom_point(color = "steelblue", size = 4, 
+               alpha = 1/2)##Transparency  
+g + geom_point(aes(color = bmicat),##Color by factor
+               size = 4, alpha = 1/2)
+```
+
+### Modifying Labels
+```{r}
+g + geom_point(aes(color = bmicat)) + 
+  labs(title = "MAACS Cohort") +##equivelent to main
+  labs(x = expression("log " * PM[2.5]),#Using regEx to make a subscript
+       y = "Nocturnal Symptoms")
+```
+
+### Customizing the Smooth  
+```{r}
+g + geom_point(aes(color = bmicat), size = 2, alpha = 1/2) +
+  geom_smooth(size = 4, linetype = 3, ##Customize line
+              method = "lm", 
+              se = FALSE) #Turn off confidence interval
+```
+
+### Changing theme  
+```{r}
+g + geom_point(aes(color = bmicat)) + theme_bw(base_family = "Times")
+```
 
 
-## Part 4  
+## Part 5: Adjusting the Axis   
+### Axis Limits  
+* Creating a dataset with an outlier  
+```{r}
+testdat <- data.frame(x = 1:100, y = rnorm(100))
+testdat[50,2] <- 100 #Outlier  
+```
+
+* Plotting with Base  
+```{r}
+plot(testdat$x, testdat$y, type = "l")
+plot(testdat$x, testdat$y, type = "l", ylim = c(-3, 3))
+```
+
+* Plotting with ggplot  
+```{r}
+g <- ggplot(testdat, aes(x = x, y = y))
+g + geom_line() #Makes a line plot
+
+##Outlier is missing and line cuts off at the point
+#ggplot subsets the data that's to be plotted
+g + geom_line() + ylim(-3, 3)  
+
+#Now it's included, just cut-off
+g + geom_line() + coord_cartesian(ylim = c(-3, 3)) 
+```
+
+### Tertiles (Plots by range of value)  
+* Using maacs Data
+```{r}
+maacs <- readRDS("./data/decentMaacs.rds")
+library(dplyr)
+maacs <- mutate(maacs, logno2_new = log(eno, 10))
+```
+  + How does the relationship between PM2.5 and nocturnal symptoms vary by BMI and NO2?  
+  + NO2 is a continuous variable, unlike BMI  
+  + We need to make NO2 categorical so we can condition on it in the plotting  
+    - Use the `cut()` function for this  
+
+```{r}
+## Calculate the deciles of the data
+cutpoints <- quantile(maacs$logno2_new, seq(0, 1, length = 4), na.rm = TRUE)
+
+## Cut the data at the deciles and create a new factor variable
+maacs$no2dec <- cut(maacs$logno2_new, cutpoints)
+
+## See the levels of the newly created factor variable
+levels(maacs$no2dec)
+```
+
+```{r}
+## Setup ggplot with data frame
+
+##The following code executes fine in console and when running
+##This chunck in Rmd, but when the doc is knitted this causes 
+## an error :((
+# library(ggplot2)
+# g <- ggplot(maacs, aes(logpm25, NocturnalSympt))
+# 
+# ## Add layers
+# g + geom_point(alpha = 1/3) + ##Add points  
+#   facet_wrap(bmicat ~ no2dec, nrow = 2, ncol = 4) +#panels
+#   geom_smooth(method = "lm", se = FALSE, col = "steelblue") +#smoother
+#   theme_bw(base_family = "Title", base_size = 10) +#change theme
+#   labs(x = expression("log " * PM[2.5]),
+#          y = "Nocturnal Symptoms",
+#          title = "MAACS Cohort")
+```
+
+### Summary  
+* ggplot2 is very powerful and flexible if you learn the "grammar" and the various elements that can be tuned/modified  
+* Many more types of plots can be made; explore and mess around with the package (references are mentioned in Part 1)
+
 
 
 ## Lesson with `swirl()`: GGPlot2 Part 2  
-
-
-## Part 5  
+* Labels of facets in margins
+```{r}
+ggplot(mpg, aes(x=displ, y=hwy), color = factor(year)) + 
+  geom_point() + facet_grid(drv~cyl, 
+                            margins = TRUE)
+```
 
 
 ## Lesson with `swirl()`: GGPlot2 Extras  
+* ggplot features can be used with qplot
+* Boxplot with ggplot
+```{r}
+library(ggplot2)
+ggplot(diamonds, aes(carat, price)) + geom_boxplot() + facet_grid(.~cut)
+```
+
+
 
 ## Lesson with `swirl()`: Working with Colors  
+* the package `grDevices` contains more colors
+  + `heat.colors()` shows colors that are consistent with the physical proeprties of fire  
+  + `topo.colors()` topographical colors ranging from blue(low) to brown(high)  
+  + `colorRamp` Takes color names as arguments then returns a function that takes values between 0 and 1 as arguments, 0 and 1 represent the extremes of the color palette, numbers inbetween are the blend  
+```{r}
+library(grDevices)
+pal <- colorRamp(c("red", "blue"))
+pal(0)
+pal(1)
+#Returns an array representing the RGB value
+pal(seq(0,1, len = 6))
+```
+  
+  + `colorRampPalette` similar to `colorRamp` but the returned function takes integer arguments and returns a vector of colors each of which is a blend of colors of the original palette. Uses Hex rather than RGB  
+```{r}
+p1 <- colorRampPalette
+p1(2)
+p1(6)
+```
 
+* the `alpha` argument represents transparency
+```{r}
+plot(rnorm(1:1000), rnorm(1:1000), 
+     col = rgb(red = 0, green = 0.5, blue = 0.5,
+    alpha = 0.3))
+```
 
-# Quiz 2 Scribbles  
-
-
-
-
-
-
-
-
-
-
-
-
+* Another nice color package is `RColorBrewer` which contains color palettes  
+  + `sequential`, `divergent`, `qualitative`
+  + You would use these functions as your base palette in colorRamp(Palette)  
+  
 
 ***Reminder to commit to GitHub (Delete this line AFTER the commit)***
 
