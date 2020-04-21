@@ -1290,19 +1290,129 @@ plot(rnorm(1:1000), rnorm(1:1000),
   + You would use these functions as your base palette in colorRamp(Palette)  
   
 
-***Reminder to commit to GitHub (Delete this line AFTER the commit)***
-
 # Lesson 6: Hierarchical Clustering
-## Part 1
+## Part 1: Intro
+* "Bread and butter" technique when visualizing high- or multi- dimensionsal data  
+* Goal is to find data that are **close** into groups  
+  + How do we define close?  
+  + How do we group things?  
+  + How do we visualize the grouping?  
+  + How do we interpret the grouping?  
+* An agglomerative approach
+  + Find closest two things  
+  + Put them together  
+  + Find next closest  
+* Requires
+  + A defined distance  
+  + A merging approach  
+* Produces  
+  + A tree showing how close things are to each other
+
+### How do we define close?
+* Most important step  
+  + Without it we would just have "Garbage in and Garbage out"  
+* Distance or similarity  
+  + Continuous - euclidean distance  
+    - $D^2=(X_1-X_2)^2+(Y_1-Y_2)^2$  
+    - $D=\sqrt{(X_{1 1}-X_{1 2})^2+(X_{2 1}-X_{2 2})^2 + ... + (X_{n 1}-X_{n 2})^2}$
+  + Continuous - correlation similarity  
+  + Binary - "Taxi-cab" distance  
+    - $D_c = |X_{1 1}-X_{1 2}|+|X_{2 1}-X_{2 2}| + ... + |X_{n 1}-X_{n 2}|$
+* Pick a distance/similarity that makes sense for your problem  
 
 
-## Part 2
+
+## Part 2: Clustering some data
+```{r}
+set.seed(1234)
+par(mar = c(0, 0, 0, 0))
+x <- rnorm(12, mean = rep(1:3, each = 4), sd = 0.2)
+y <- rnorm(12, mean = rep(c(1, 2, 1), each = 4), sd = 0.2)
+plot(x, y, col = "blue", pch = 19, cex = 2)
+text(x + 0.05, y + 0.05, labels = as.character(1:12))
+```
+
+* First calculate the distances  
+```{r}
+dataFrame <- data.frame(x = x, y = y)
+dist(dataFrame) 
+#Defaults to euclidean dist
+#Returns lower trianglular matrix of distance from point <col>
+# to point <row>
+```
+
+* `hclust` will create a **cluster dendrogram**, which is like a heap with closest distances within the same branch  
+```{r}
+distxy <- dist(dataFrame)
+hClustering <- hclust(distxy)
+plot(hClustering)
+```
+
+* Number of clusters aren't stated, so you have to cut the Dendrogram at some height  
 
 
-## Part 3  
+## Part 3: Heatmaps & More on Dendrograms  
+### Prettier dendrograms  
+```{r}
+myplclust <- function(hclust, lab = hclust$labels, 
+                      lab.col = rep(1, length(hclust$labels)), 
+                      hang = 0.1, ...){
+  y <- rep(hclust$height, 2)
+  x <- as.numeric(hclust$merge)
+  y <- y[which(x < 0)]
+  x <- x[which(x < 0)]
+  x <- abs(x)
+  y <- y[order(x)]
+  x <- x[order(x)]
+  plot(hclust, labels = FALSE, hang = hang, ...)
+  text(x = x, y = y[hclust$order] - (max(hclust$height) * hang), 
+       labels = lab[hclust$order], col = lab.col[hclust$order],
+       srt = 90, adj = c(1, 0.5), xpd = NA, ...)
+}
 
+dataFrame <- data.frame(x = x, y = y)
+distxy <- dist(dataFrame)
+hClustering <- hclust(distxy)
+myplclust(hClustering, lab = rep(1:3, each = 4), lab.col = rep(1:3, each = 4))
 
-## Lesson with `swirl()`: Hierarchical Clustering  
+```
+
+* **[Even Prettier Dendrograms](https://www.r-graph-gallery.com/dendrogram)
+
+### Merging points
+* When you merge two points together what represents it's new location
+  + Average linkage
+    - Like the center of gravity of the clusters  
+  + complete linkage
+    - the distance between the furthest points in each cluster that are further from eachother
+    
+### `heapmap()`  
+```{r}
+dataFrame <- data.frame(x = x, y = y)
+set.seed(143)
+dataMatrix <- as.matrix(dataFrame)[sample(1:12), ]
+heatmap(dataMatrix)
+```
+  
+* Helps visualize matrix data  
+* runs a hierarchical cluster analysis on the rows of the table and on the columns of the table
+  + the rows are observations  
+  + Thinks of the columns as observations as well and runs a heatmap on them
+* helpful for high dimensional tabled data
+
+### Notes and further resources  
+* Heirical cluster is a useful technique for visualizing higher dimensional data  
+* The picture may be unstable
+  + Change a few points (Consider outliers and missing values)  
+  + Have different missing values (What data you're looking at)  
+  + Pick a different distance  
+  + Change the merging strategy
+  + Change the scale of points for one variable  
+* But it is deterministic  
+* Choosing where to cut isn't always obvious  
+* Should be primarily sued for exploration  
+* **[Rafa's Distances and Clustering video](https://www.youtube.com/watch?v=wQhVWUcXM0A)**  
+* **[Elements of statistical learning](https://web.stanford.edu/~hastie/ElemStatLearn/)**
 
 
 ***Reminder to commit to GitHub (Delete this line AFTER the commit)***
