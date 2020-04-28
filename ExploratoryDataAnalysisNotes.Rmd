@@ -1415,33 +1415,407 @@ heatmap(dataMatrix)
 * **[Elements of statistical learning](https://web.stanford.edu/~hastie/ElemStatLearn/)**
 
 
-***Reminder to commit to GitHub (Delete this line AFTER the commit)***
-
 # Lesson 7: K-Means Clustering & Dimension Reduction  
 
-## K-Means Clustering (Part 1)  
+## K-Means Clustering (Part 1): Concept  
+* Older technique that is still useful for clustering higher dimension data  
+* K-means clustering takes a partioning apprroach  
+  + Fix a number of clusters  
+  + Get "centroids" of each cluster  
+  + Assign things to closest centroid  
+  + Recalculate centroids & repeat  
+* Requires:
+  + A defined distance metric  
+  + A number of clusters  
+  + An inital guess as to cluster centroids  
+* Produces:
+  + A Final estimate of cluster centroids  
+  + An assignemnt of each point to clusters
+  
+* Example:
+```{r}
+set.seed(1234)
+par(mar = c(0, 0, 0, 0))
+x <- rnorm(12, mean = rep(1:3, each = 4), sd = 0.2)
+y <- rnorm(12, mean = rep(c(1,2,1), each = 4), sd = 0.2)
+plot(x, y, col = "blue", pch = 19, cex = 2)
+text(x + 0.05, y + 0.05, labels = as.character(1:12))
+```
 
+* First finds shortest distance and each guess for a centroid  
+* Take the mean of the clusters  
+* Find shortest distance to each point and then repeat
 
+## K-Means Clustering (Part 2): `kmeans()`  
+* Important parameters:
+  + `x`: The data
+  + `centers`: number of centers
+  + `iter.max`: maximum number of iterations to go through
+  + `nstart`: number of random starts you want to try if you specify centers as a number
+```{r}
+dataFrame <- data.frame(x,y)
+kmeansObj <- kmeans(dataFrame, centers = 3)
+names(kmeansObj)
+kmeansObj$cluster
+kmeansObj$centers
+```
 
-## K-Means Clustering (Part 2)  
+### Plotting  
+```{r}
+par(mar = rep(0.2, 4))
+plot(x,y, col = kmeansObj$cluster, pch = 19, cex = 2)
+points(kmeansObj$centers, col = 1:3, pch = 3, cex = 3, lwd = 3)
+```
 
+* With heatmaps
+```{r}
+set.seed(1234)
+dataMatrix <- as.matrix(dataFrame)[sample(1:12), ]
+kmeansObj2 <- kmeans(dataMatrix, centers = 3)
+par(mfrow = c(1,2), mar = c(2, 4, 0.1, 0.1))
+image(t(dataMatrix)[, nrow(dataMatrix):1], yaxt = "n")
+image(t(dataMatrix)[, order(kmeansObj$cluster)], yaxt = "n")
+```
 
-## Lesson with `swirl()`: K Means Clustering  
+### Notes and further resources  
+* K-means requries a known number of clusters  
+  + Pick by eye/intuition  
+  + Pick by cross validation/information theory, etc.  
+  + Determining the number of clusters  
+* K-means is not deterministic  
+  + With a different # of clusters  
+  + Different number of iterations  
+* **[Rafa's Distances and Clustering video](https://www.youtube.com/watch?v=wQhVWUcXM0A)**  
+* **[Elements of statistical learning](https://web.stanford.edu/~hastie/ElemStatLearn/)**  
 
 
 ## Dimension Reduction (Part 1)
+* Reducing the number of random variables as to preform future analysis  
+
+![Dimension Reduction Example]("./images/D_Reduction")  
+
+This lesson will look at two types:
+* Singular Value Decomposition
+* Principal Componets Analysis
+
+* From **[Wikipedia](https://en.wikipedia.org/wiki/Dimensionality_reduction)**:
+"Advantages of dimensionality reduction:  
+1) It reduces the time and storage space required  
+2) Removal of multi-collinearity improves the interpretation of the parameters of the machine learning model.  
+3) It becomes easier to visualize the data when reduced to very low dimensions such as 2D or 3D  
+4) It avoids the curse of dimensionality  "
+
+
+### SVD (Singular Value Decomposition)  
+Notes for this section on **[This series of lectures](https://www.youtube.com/playlist?list=PLMrJAkhIeNNSVjnsviglFoY2nXildDCcv)**  
+Review on matrix multiplication:
+```{r}
+x <- matrix(c(1,3), nrow = 2)
+A <- matrix(c(2,-1,1,3), nrow = 2, ncol = 2)
+y <- matrix(c((2*1 + 1*3), (-1*1 + 3*3)))
+
+#A*x = y
+print("A")
+A
+
+print("x")
+x
+
+print("y")
+y
+```
+
+* SVD is a data reduction tool to store a complex data set as it's key features through some linear algebra techniques. 
+* Data-Driven Generalization of **[the Fourier Transform](https://youtu.be/spUNpyF58BY)**  
+* SVD will create three variables to represent the data  
+$X = UDV^T$
+  + `X` is our matrix with each variable in a column and each observation in a row  
+  + `U` is the same length of the columns, `n`, they describe the variance in the columns of `X`, each column is orthagonal to one another. They represent some kind of **[Eigen value for the matrix](https://youtu.be/PFDu9oVAE-g)**  
+  + `D` is a diagonal matrix that roughly conveys the weight of the vectors in `U` and `V` such that $d_{1,1} > d_{2,2} > d_{3,3} > ... > d_{m,m}$ where `m` is the number of columns. This allows us to pick a spot where the `D` values are close to 0 that they can be ignored without loosing content from the original matrix  
+  + $V^T$ is the transpose of `V`, where `V` describes the variance in the rows of `X`. Like `U`, each column of `V` is orthagonal to one another.
+* Since all the values after $d_{m,m}$ are zero, we can subset out all columns of `U` that are in position `m` or less, meaning the number of rows is reduced to the number of columns  
+* One could also arbitarily choose some rank to keep which would essentially reduce the size of the data in exchange for loosing some of the clarity of it  
+
+
+
+### PCA (Principal Componets Analysis)
+* Helps uncover the lower dimension patterns in a dataset to build models based off of them  
+* Statistical interpetation of SVD  
+* Each componet of `X` in PCA represents a row vector for each observation  
+* Assumes there is some statistical distribution amoung the data  
+1) Compute the mean per row and create an average matrix, col of 1s times the row means
+2) Subtract the mean from from the data points of each row  
+3) Find Covarience matrix, `C`, of rows from step 2, `B` such that $C=B^TB$ and $B=UDV^T$
+4) Compute eigenvalues, `E`, of C and eigenvectors, `V`, such that $CV=VE$ 
+  + This will result in a matrix of principal componets, `T`, such that $T=BV$ and $T=UD$ 
+* Helps you figure out how much of your data explains some amount of variance within the data
+
+### Back to the main lecture  
+* Example of data with an underlying pattern  
+```{r}
+set.seed(12345)
+par(mar = rep(0.2, 4))
+dataMatrix <- matrix(rnorm(400), nrow = 40)
+image(1:10, 1:40, t(dataMatrix) [, nrow(dataMatrix):1])
+#This shows no clear pattern in the data
+```
+
+```{r}
+#Cluster of the data
+par(mar = rep(0.2, 4))
+heatmap(dataMatrix)
+```
+
+```{r}
+#Getting ogData again for safety
+set.seed(12345)
+par(mar = rep(0.2, 4))
+dataMatrix <- matrix(rnorm(400), nrow = 40)
+
+#Adding a pattern
+set.seed(678910)
+for(i in 1:40) {
+  #flip a coin
+  coinFlip <- rbinom(1, size = 1, prob = 0.5)
+  
+  #if coin is heads add a common pattern to that row
+  if(coinFlip) {
+    dataMatrix[i, ] <- dataMatrix[i, ] + rep(c(0,3), each = 5)
+  }
+}
+
+#Looking at the heatmap
+par(mar = rep(0.2, 4))
+image(1:10, 1:40, t(dataMatrix) [, nrow(dataMatrix):1])
+```
+
+```{r}
+#Looking at the clusters
+par(mar = rep(0.2, 4))
+heatmap(dataMatrix)
+```
+
+```{r}
+#Pulling apart the heatmap by looking at ogData, rowMeans, and colMeans
+hh <- hclust(dist(dataMatrix))
+dataMatrixOrdered <- dataMatrix[hh$order, ]
+par(mfrow = c(1, 3))
+image(t(dataMatrixOrdered) [, nrow(dataMatrixOrdered):1])
+plot(rowMeans(dataMatrixOrdered), 40:1, xlab = "Row Mean", ylab = "Row", pch = 19)
+plot(colMeans(dataMatrixOrdered), xlab = "Column", ylab = "Column Mean", pch = 19)
+```
+
+* The goal of all this is if you are given multivariate variables $X_1, ... , X_n$ s.t. $X_1 = (X_{1 1}, ... , X_{1 m})$ you want to:
+  + Find a new set of multivariate variables that are uncorrelated and explain as much variance as possible  
+  + If you put all the variables together in one matrix, find the best matrix created with fewer variables (a lower rank) that explains the original data.
+* Primary goal is *statistical* and the secondary goal is *data compression*.
+
 
 
 ## Dimension Reduction (Part 2)
+* Breaking apart the components of the SVD
+```{r}
+svd1 <- svd(scale(dataMatrixOrdered))
+par(mfrow = c(2,3))
+image(t(dataMatrixOrdered) [, nrow(dataMatrixOrdered):1])
+plot(svd1$u[, 1], 40:1, xlab = "Row", ylab = "First left sigular vector",
+     pch = 19)
+plot(svd1$v[, 1], xlab = "Column", ylab = "First right singular vector", pch = 19)
 
+image(t(dataMatrixOrdered) [, nrow(dataMatrixOrdered):1])
+plot(svd1$u[, 2], 40:1, xlab = "Row", ylab = "Second left sigular vector",
+     pch = 19)
+plot(svd1$v[, 2], xlab = "Column", ylab = "Second right singular vector", pch = 19)
+```
+  + top mid and right plots are the first element of the matrix `U` and `V` respectively, the second row shows the second elemements. It can be seen here how the first vector is holding onto a majority of the pattern of `dataMatrixOrdered`  
+  
+* Looking at the diagonal matrix we can see how the Variance is explained per element of `U` and `V`, indicating why the first element of the matrices is so descriptive of the pattern  
+```{r}
+par(mfrow = c(1,2))
+plot(svd1$d, xlab = "Column", ylab = "Singular value", pch = 19)
+plot(svd1$d^2/sum(svd1$d^2), xlab = "Column", ylab = "Prop. of variance explained",
+     pch = 19)
+```
+
+* The following graphic shows how the PCA and SVD are the same things since they plot 1:1    
+```{r}
+svd1 <- svd(scale(dataMatrixOrdered))
+pca1 <- prcomp(dataMatrixOrdered, scale = TRUE)
+plot(pca1$rotation[, 1], svd1$v[, 1], pch = 19, xlab = "Principal Component 1",
+     ylab = "Right Singular vector 1")
+abline(c(0,1))
+```
+
+* Components of the SVD  
+```{r}
+constantMatrix <- dataMatrixOrdered*0 #Same size
+
+#Fill each row with 5 0's then 5 1's
+for(i in 1:dim(dataMatrixOrdered)[1]){constantMatrix[i,] <- rep(c(0,1), each = 5)}
+
+#Take SVD
+svd1 <- svd(constantMatrix)
+
+#plot heatmap of const, the diagonals of the svd & variance explained
+par(mfrow=c(1,3))
+image(t(constantMatrix)[,nrow(constantMatrix):1])
+plot(svd1$d, xlab="Column", ylab = "Singular value", pch=19)
+plot(svd1$d^2/sum(svd1$d^2), xlab="Column", ylab="Prop. of variance explained", pch=19)
+```
+* The first value explains 100% of the variation in the data set since there is really only one dimension in the constantMatrix
+
+* Now we'll add a second pattern
+```{r}
+set.seed(678910)
+cpyMatrix <- dataMatrix
+for(i in 1:40) {
+  #flip a coin
+  coinFlip1 <- rbinom(1, size =1, prob = 0.5)
+  coinFlip2 <- rbinom(1, size = 1, prob = 0.5)
+  
+  # if coin is heads add a common pattern to that row
+  if(coinFlip1) {
+    cpyMatrix[i, ] <- cpyMatrix[i, ] + rep(c(0, 5), each = 5)
+  }
+  if (coinFlip2) {
+    cpyMatrix[i, ] <- cpyMatrix[i, ] + rep(c(0, 5), 5)
+  }
+}
+hh <- hclust(dist(cpyMatrix))
+cpyMatrixOrdered <- cpyMatrix[hh$order, ]
+
+
+svd2 <- svd(scale(cpyMatrixOrdered))
+par(mfrow= c(1,3))
+
+#Plotting the true patterns
+image(t(cpyMatrixOrdered) [, nrow(cpyMatrixOrdered):1])
+plot(rep(c(0,1), each = 5), pch = 19, xlab = "Column", ylab = "Pattern 1")
+plot(rep(c(0,1), 5), pch = 19, xlab = "Column", ylab = "Pattern 2")
+```
+
+```{r}
+#Trying to pick up the pattern that was put into the data with svd
+svd2 <- svd(scale(cpyMatrixOrdered))
+par(mfrow = c(1,3))
+image(t(cpyMatrixOrdered) [, nrow(cpyMatrixOrdered):1])
+plot(svd2$v[, 1], #Close detection of first pattern
+     pch = 19, xlab = "Column", ylab = "First right singular vector")
+plot(svd2$v[, 2], #Close detection of second pattern
+     pch = 19, xlab = "Column", ylab = "Second right singular vector")
+```
+
+```{r}
+#Looking at d and the variance explained of double pattern data
+svd3 <- svd(scale(cpyMatrixOrdered))
+par(mfrow = c(1,2))
+plot(svd3$d, xlab = "Column", ylab = "Singular value", pch = 19)
+plot(svd3$d^2/sum(svd1$d^2), xlab = "Column", ylab = "Percent of variance explained")
+```
+* first is pattern from the original `rep(c(0,1), each = 5)` pattern
+* The other four prodominent ones are for the 2 random coin flips that weren't uniformly distributed
+* The rest are near 0 and some are raised for more accuratley depicting the randomness that resulted from the coin flip  
 
 ## Dimension Reduction (Part 3)
+* Missing values won't work
+```{r}
+dataMatrix2 <-  cpyMatrixOrdered
+
+##Randomly insert some missing data
+dataMatrix2[sample(1:100, size = 40, replace = FALSE)] <-  NA
+##The following line won't run and will return the following error
+#svd1 <- svd(scale(dataMatrix2))
+# Error: infinite or missing values in 'x'
+```
+
++ Using impute package from bioconductor
++ Takes a missing row and imputes it's data with the k nearest neighbors to that row and average them
+```{r}
+library(impute)
+dataMatrix2 <- cpyMatrixOrdered
+dataMatrix2[sample(1:100, size = 40, replace=FALSE)] <- NA
+dataMatrix2 <- impute.knn(dataMatrix2)$data
+svd1 <- svd(scale(cpyMatrixOrdered))
+svd2 <- svd(scale(dataMatrix2))
+par(mfrow=c(1,2))
+#ogData
+plot(svd1$v[,1], pch=19)
+
+#Imputed Data
+plot(svd2$v[,1], pch=19)
+```
+
+### Face example
+```{r}
+library(png)
+faceData <- readPNG("./images/face.png")
+image(t(faceData)[, nrow(foo):1])
+```
+
+```{r}
+svd1 <- svd(scale(faceData))
+plot(svd1$d^2/sum(svd1$d^2), pch = 19, xlab = "Singular vector", ylab = "Variance explained")
+```
+
+```{r}
+Variance <- svd1$d^2/sum(svd1$d^2)
+for(i in 20:43) {
+  print(sum(Variance[1:i]))
+}
+plotPoints <- data.frame(a = sum(Variance[1]),
+                         b = sum(Variance[1:5]),
+                         c = sum(Variance[1:10]),
+                         c = sum(Variance[1:21]),
+                         c = sum(Variance[1:42]))
+print(plotPoints)
+                         
+```
+
++ Create approzimations
+```{r}
+svd1 <- svd(scale(faceData))
+
+## NOTE: %*% is matrix multiplication
+
+#Here svd1$d[1] is a constant
+approx1 <- svd1$u[, 1] %*% t(svd1$v[, 1]) * svd1$d[1]
+
+# In these examples we need to amke the diagonal matrix out of d
+approx5  <- svd1$u[, 1:5]  %*% diag(svd1$d[1:5])  %*% t(svd1$v[, 1:5])
+approx10 <- svd1$u[, 1:10] %*% diag(svd1$d[1:10]) %*% t(svd1$v[, 1:10])
+approx21 <- svd1$u[, 1:21] %*% diag(svd1$d[1:21]) %*% t(svd1$v[, 1:21])
+approx42 <- svd1$u[, 1:42] %*% diag(svd1$d[1:42]) %*% t(svd1$v[, 1:42])
+```
+
+```{r}
+par(mfrow = c(1, 2))
+image(t(approx1)[, nrow(approx1):1], main = "(a)")
+image(t(approx5)[, nrow(approx5):1], main = "(b)")
+image(t(approx10)[, nrow(approx10):1], main = "(c)")
+image(t(approx21)[, nrow(approx21):1], main = "(d)")#95%
+image(t(approx42)[, nrow(approx42):1], main = "(e)")#99%
+image(t(faceData)[, nrow(faceData):1], main = "(og)")
+
+```
+
+### Notes and further resources
+* Scale matters  
+* PC's/SV's may mix real patterns  
+* Can be computationally intensive  
+* **(Advanced data analysis from an elementary point of view)[http://www.stat.cmu.edu/~cshalizi/ADAfaEPoV/ADAfaEPoV.pdf]**  
+* **(Elements of statistical learning)[http://www-stat.stanford.edu/~tibs/ElemStatLearn/]**  
+* Alternatives  
+  + **(Factor analysis)[http://en.wikipedia.org/wiki/Factor_analysis]**  
+  + **(Independent components analysis)[http://en.wikipedia.org/wiki/Independent_component_analysis]**  
+  + **(Latent semantic analysis)[http://en.wikipedia.org/wiki/Latent_semantic_analysis]**
 
 
 ## Lesson with `swirl()`: Dimension Reduction
+* PCA and SVD are used in both the exploratory phase and the more formal modelling stage of analysis  
+* **(A Tutorial on Principal Component)[http://arxiv.org/pdf/1404.1100.pdf]**
+* On the SVD formula:
+"*The D matrix of the SVD explains this phenomenon. It is an aspect of SVD called variance explained. Recall that D is the diagonal matrix sandwiched in between U and V^t in the SVD representation of the data matrix. The diagonal entries of D are like weights for the U and V columns accounting for the variation in the data. They're given in decreasing order from highest to lowest.*"
 
-
-## Lesson with `swirl()`: Clustering Example  
 
 ***Reminder to commit to GitHub (Delete this line AFTER the commit)***
 
