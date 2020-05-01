@@ -1917,20 +1917,349 @@ plot(x, y, col = rgb(0,0,0,0.2), pch=19)
 * The `colorRamp` and `colorRampPalette` functions can be used in conjunction with color palettes to connect data to colors  
 * Transparency can sometimes be used to clarify plots with many points  
 
-
-***Reminder to commit to GitHub (Delete this line AFTER the commit)***
-
 # Case Studies  
 ## Clustering Case Study
+* This will be using data from the UCI Machine Learning Archive
+```{r}
+samsungData <- read.csv("./data/UCI_Data.csv")
+names(samsungData)[1:12]
+table(samsungData$activity)
+```
+
+* Plotting average acceleration for first subject  
+```{r}
+par(mfrow = c(1, 2), mar = c(5, 4, 1, 1))
+
+#Convert activity to a factor variable
+samsungData <- transform(samsungData, activity = factor(activity))
+
+#Subset to just look at first subject
+sub1 <- subset(samsungData, subject == 1)
+plot(sub1[,1], col = sub1$activity, ylab = names(sub1)[1])
+plot(sub1[,2], col = sub1$activity, ylab = names(sub1)[2])
+
+#Legend is the same for both plots so 1 will do for now
+legend("bottomright", legend = unique(sub1$activity), col = unique(sub1$activity),
+       pch = 1)
+```
+
+* Plotting Max acceleration
+```{r}
+par(mfrow = c(1,2))
+plot(sub1[,10], pch = 19, col = sub1$activity, ylab = names(sub1)[10])
+plot(sub1[,11], pch = 19, col = sub1$activity, ylab = names(sub1)[11])
+```
+
+```{r}
+distanceMatrix <- dist(sub1[, 10:12])
+hclustering <- hclust(distanceMatrix)
+plot(hclustering)
+```
++ A clearer branch of two groups can be seen above
+
+* Singular Value Decomposition  
+```{r}
+names(sub1[562:563]) #These aren't deterministic in any way
+svd1 <- svd(scale(sub1[, -c(562, 563)]))
+par(mfrow = c(1,2))
+plot(svd1$u[, 1], col = sub1$activity, pch = 19)
+plot(svd1$u[, 2], col = sub1$activity, pch = 19)
+```
+  + some clustering can be seen here, especially in the magenta color
+
+* Find maximum contributor  
+```{r}
+plot(svd1$v[, 2], pch = 19)
+```
+```{r}
+maxContrib <- which.max(svd1$v[, 2])
+distanceMatrix <- dist(sub1[, c(10:12, maxContrib)])
+hclustering <- hclust(distanceMatrix)
+myplclust(hclustering, lab.col = unclass(sub1$activity))
+```
+  + Now the three movement activites are pretty well separated, but the non-moving ones are still poorly mixed  
+```{r}
+names(samsungData)[maxContrib]
+```
+  + So the max contributer was mean freq. in the z direction, which makes sense for moving related activities  
+
+* K-means clustering 
+  + `kmeans = 1`
+```{r}
+kClust <- kmeans(sub1[, -c(562, 563)], centers = 6)
+table(kClust$cluster, sub1$activity)
+```
+  + Running this multiple times will give diffrent results each time since the singular start point is random
+  
+* `kmeans = 100`
+```{r}
+kClust <- kmeans(sub1[, -c(562, 563)], centers = 6, nstart = 100)
+table(kClust$cluster, sub1$activity)
+```
+  + Optimal solution is taken from 100 simulations  
+  
+* Looking at centers
+```{r}
+# Var 1
+plot(kClust$center[1, 1:10], pch = 19, ylab = "Cluster Center", xlab = "")
+
+# Var 4
+plot(kClust$center[4, 1:10], pch = 19, ylab = "Cluster Center", xlab = "")
+```
 
 
 
 ## Air Pollution Case Study  
+### Asking the question
+* When you first look at data you have to have a general idea in mind of what you're trying to answer  
+
+###Opening and Exploring the Data Files
+* This case study will be looking at fine particulate matter in the air (PM2.5)
+```{r}
+download.file("https://raw.githubusercontent.com/jtleek/modules/master/04_ExploratoryAnalysis/CaseStudy/pm25_data/RD_501_88101_1999-0.txt",
+              method = "curl", destfile = "./data/pm25_data/RD_501_88101_1999-0.txt")
+download.file("https://raw.githubusercontent.com/jtleek/modules/master/04_ExploratoryAnalysis/CaseStudy/pm25_data/RD_501_88101_2012-0.txt",
+              method = "curl", destfile = "./data/pm25_data/RD_501_88101_2012-0.txt")
+
+dataVan1999 <- read.csv("./data/pm25_data/RD_501_88101_1999-0.txt",
+                        sep = "|")
+dataVan1999 <- dataVan1999[-1,]
+dataVan2012 <- read.csv("./data/pm25_data/RD_501_88101_2012-0.txt",
+                        sep = "|")
+dataVan2012 <- dataVan2012[-1,]
+#First row is header for RC records, 
+#there are none in these data so I removed the header info
+```
+
+* Explaining some of the variables  
+```{r}
+varsToLookAt <- names(dataVan1999)[c(3:5, 11, 13)]
+print(paste0(varsToLookAt[1], ": a number that indicates what state that ",
+             "reading comes from."))
+print(paste0(varsToLookAt[2], ": a number indicating the County."))
+print(paste0(varsToLookAt[3], ": ID number of the site the reading comes from ",
+             "within the County."))
+print(paste0(varsToLookAt[4], ": The date of the reading in YYYYMMDD format."))
+print(paste0(varsToLookAt[5], ": The mass of PM2.5 in micrograms/meter cubed."))
+
+```
+
+* The example now has variables for the data so I'll convert to those now  
+```{r}
+pm0 <- dataVan1999
+pm1 <- dataVan2012
+
+#Seeing how the dims line up, same ncol
+dim(pm0)
+dim(pm1)
+
+#Cleaning the class of some data
+pm0$State.Code <-     as.numeric(as.character(pm0$State.Code))
+pm0$County.Code <-    as.numeric(as.character(pm0$County.Code))
+pm0$Site.ID <-        as.numeric(as.character(pm0$Site.ID))
+pm0$Sample.Value <-   as.numeric(as.character(pm0$Sample.Value))
+
+pm1$State.Code <-     as.numeric(as.character(pm1$State.Code))
+pm1$County.Code <-    as.numeric(as.character(pm1$County.Code))
+pm1$Site.ID <-        as.numeric(as.character(pm1$Site.ID))
+pm1$Sample.Value <-   as.numeric(as.character(pm1$Sample.Value))
+
+##Restoring data for later recalling
+dataVan1999 <- pm0
+dataVan2012 <- pm1
+```
+
+* They use `read.table` then assign names to the data, but I've already used `read.csv` to accomplish this  
+
+* Look at readings
+```{r}
+x0 <- pm0$Sample.Value
+x1 <- pm1$Sample.Value
+str(x0)
+str(x1)
+summary(x0)
+summary(x1)
+
+#Looking at number of missing values
+mean(is.na(x0))
+mean(is.na(x1))
+
+```
+
+### Are Missing Data a Problem?
+* When encountering a dataset with missing values one should ask if this is an issue that needs addressed, they should *not* just be tossed out  
+
+### Back to exploring  
+```{r}
+boxplot(x0, x1)
+#This shows the data are skewed right, most values are near 0
+#But this boxplot is quite hard to see
+```
+
+```{r}
+#To make it easier to view we'll take the log
+boxplot(log(x0), log(x1))
+#This creates some NaN values as log(<0) is undefined
+```
+
+### Why there are negative values in this data
+```{r}
+negs <- x1 < 0
+sum(negs, na.rm = TRUE)
+mean(negs, na.rm = TRUE)
+unique(pm1[negs,]$State.Code)
+#These corelate to the following states:
+c("Alaska", "Arizona", "California", "Colorado", "D.C.",
+  "Hawaii", "Idaho", "Indiana", "Kentucky", "Louisiana",
+  "Maryland", "Mississippi", "Missouri", "Montana", "Nebraska",
+  "Nevada", "New Hampshire", "North Carolina", "North Dakota",
+  "Ohio", "Pennsylvania", "South Dakota", "Tennessee",
+  "Utah", "Washington", "Wisconsin", "Wyoming")
+```
+* My synopsis on these negative values:
+  + PM2.5 is measured by the mass of it per unit of airflow. A filter is weighed to see how much PM2.5 accumulated on the filter.  
+  + The concensus from **(this source)[https://www.researchgate.net/post/How_can_I_deal_with_negative_and_zero_concentrations_of_PM25_PM10_and_gas_data]** suggests that the negative values may come from when the quantity of matter is close to the threshold for 0  
+  + This theory is upheld by looking at the time-frame these negative values occur  
+```{r}
+dates <- as.Date(as.character(pm1$Date), "%Y%m%d")
+```
+```{r}
+hist(dates, "month")
+hist(dates[negs], "month")
+```
+  + Pollution values tend to be lower in the winter months, where a good amount of these values lie  
+  
+  + Another idea I came up with is that perhaps a singular value is used as the baseline for the filters' weight and each filter isn't weighed per test. If there is some deviation in the filter weights this could attribute to the negative values  
+  
+* Whichever way, with the negative values only composing about 2% of the data it's safe to throw these out  
+```{r}
+# dim(dataVan2012)
+# #Using og variable so I can rerun this multiple times without concern
+# pm1 <- dataVan2012[!negs,]
+# dim(pm1)
+```
+
+### Exploring Change at One Monitor  
+* First we have to find a monitor that existed in '99 and is still around in '12  
+```{r}
+site0 <- unique(subset(pm0, State.Code == 36, #36 is NY state
+                       c(County.Code, Site.ID)))
+site1 <- unique(subset(pm1, State.Code == 36, #36 is NY state
+                       c(County.Code, Site.ID)))
+head(site0)
+
+#Create a variable that's just County.Code & Site.ID pasted together
+site0 <- paste(site0[,1], site0[,2], sep = ".")
+site1 <- paste(site1[,1], site1[,2], sep = ".")
+
+str(site0)
+str(site1)
+```
 
 
+```{r}
+#Where are the intersections of these?
+both <- intersect(site0, site1)
+both
+```
+
+
+```{r}
+#How many observations at each monitor?
+pm0$county.site <- with(pm0, paste(County.Code, Site.ID, sep = "."))
+pm1$county.site <- with(pm1, paste(County.Code, Site.ID, sep = "."))
+
+cnt0 <- subset(pm0, State.Code == 36 & county.site %in% both)
+cnt1 <- subset(pm1, State.Code == 36 & county.site %in% both)
+
+head(cnt0)
+
+top0 <- sapply(split(cnt0, cnt0$county.site), nrow)
+sort(top0, decreasing = TRUE)
+#This let's us see that 031.0003 has the most readings (183)
+
+top1 <- sapply(split(cnt1, cnt1$county.site), nrow)
+sort(top1, decreasing = TRUE)
+#This shows that 001.0005 has the most readings (60)
+
+totals <- data.frame(loc = names(top0),
+                     numReadings = as.numeric(top0) + as.numeric(top1),
+                     relFreq = (as.numeric(top0)/sum(as.numeric(top0)) +
+                               (as.numeric(top1)/sum(as.numeric(top1)))))
+totals
+#Although this shows that 031.0003 has the most readings total,
+#And 001.0005 has the highest relFreq for both time instances
+#The lecture is choosing to look at 063.2008 so that's what we'll
+#look further into as well
+```
+
+
+```{r}
+pm1sub <- subset(pm1, State.Code == 36 & 
+                   County.Code == 063 & 
+                   Site.ID == 2008)
+pm0sub <- subset(pm0, State.Code == 36 & County.Code == 63 & Site.ID == 2008)
+
+dim(pm1sub)
+dim(pm0sub)
+```
+
+* plotting pm2.5 over time at this particular monitor
+```{r}
+dates0 <- as.Date(as.character(pm0sub$Date), "%Y%m%d")
+dates1 <- as.Date(as.character(pm1sub$Date), "%Y%m%d")
+x0sub <- pm0sub$Sample.Value
+x1sub <- pm1sub$Sample.Value
+
+par(mfrow = c(1, 2))
+
+#Use range of data for ylim instead of finding on the fly
+rng <- range(x0sub, x1sub, na.rm = TRUE)
+
+plot(dates0, x0sub, main = "1999", ylim = rng)
+abline(h = median(x0sub, na.rm = TRUE))
+
+plot(dates1, x1sub, main = "2012", ylim = rng)
+abline(h = median(x1sub, na.rm = TRUE))
+
+#I fixed the y-axis so the comparison isn't misleading
+```
+
+### Exploring Change at the State Level  
+```{r}
+#Take average value by state
+mn0 <- with(pm0, tapply(Sample.Value, State.Code, mean, na.rm = TRUE))
+mn1 <- with(pm1, tapply(Sample.Value, State.Code, mean, na.rm = TRUE))
+str(mn0)
+summary(mn0)
+summary(mn1)
+
+d0 <- data.frame(state = names(mn0), means = mn0)
+d1 <- data.frame(state = names(mn1), means = mn1)
+mrg <- merge(d0, d1, by = "state")
+dim(mrg)
+mrg$state <- as.numeric(as.character(mrg$state))
+library(dplyr)
+mrg <- arrange(mrg, state)
+head(mrg)
+```
+
+```{r}
+#Reset par
+par(mfrow = c(1,1))
+with(mrg, plot(rep(1999, 52), mrg[, 2], xlim = c(1998, 2013),
+               ylim = range(mrg[, 2], mrg[, 3], na.rm = TRUE)))
+with(mrg, points(rep(2012, 52), mrg[, 3]))
+segments(rep(1999, 52), mrg[,2], rep(2012, 52), mrg[, 3])
+```
+  + `segments` helps us see how trends change over the timeframe
+
+### Summary  
+* All these graphs have helped us to further devolop our question of "How have PM2.5 changed between the years"  
+* This info helps us get a look at the data and develop questions to continue to ask and what sort of things to follow up on
 
 ## Lesson with `swirl()`: Case Study  
-
+* Exactly the same as the Air Polution Case Study that I took notes on above  
 
 
 ***Reminder to commit to GitHub (Delete this line AFTER the commit)***
