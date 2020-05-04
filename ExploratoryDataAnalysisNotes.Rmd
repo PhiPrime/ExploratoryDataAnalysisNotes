@@ -2261,11 +2261,8 @@ segments(rep(1999, 52), mrg[,2], rep(2012, 52), mrg[, 3])
 ## Lesson with `swirl()`: Case Study  
 * Exactly the same as the Air Polution Case Study that I took notes on above  
 
-
-***Reminder to commit to GitHub (Delete this line AFTER the commit)***
-
 # Course Project 2  
 
+**(My project can be found on GitHub)[https://github.com/PhiPrime/PM25_Emissions_EDA_Proj2]**  
 
-***Reminder to commit to GitHub (Delete this line BEFORE the commit)***
 
